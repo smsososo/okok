@@ -46,31 +46,20 @@ overall_consumption_data=None
 house_holds_data=None
 solar_data=None
 
-#變量正確加載 
-# 這段代碼將所有數據加載操作合併到一個 try 區塊中，# 如果任何一個數據加載失敗，將捕獲異常並打印錯誤信息，同時將相應的變量設置為 None。
-# 這樣可以確保您的代碼更簡潔，且更容易調試。
 try:
     overall_consumption_data = pd.read_excel(f"Data/{st.session_state.username}-over-consumption.xlsx")
     overall_consumption_data['Date'] = pd.to_datetime(overall_consumption_data['Date'])
     update_consumption_data(f"Data/{st.session_state.username}-over-consumption.xlsx")
-    print("Overall consumption data loaded successfully")
 
     house_holds_data = pd.read_excel(f"Data/{st.session_state.username}-households-data.xlsx")
     house_holds_data['Date'] = pd.to_datetime(house_holds_data['Date'])
     update_households_data(f"Data/{st.session_state.username}-households-data.xlsx")
-    print("Households data loaded successfully")
 
     solar_data = pd.read_excel(f"Data/{st.session_state.username}-solar-data.xlsx")
     solar_data['Date'] = pd.to_datetime(solar_data['Date'])
     update_solar_data(f"Data/{st.session_state.username}-solar-data.xlsx")
-    print("Solar data loaded successfully")
-except Exception as e:
-    print(f"Error loading data: {e}")
-    overall_consumption_data = None
-    house_holds_data = None
-    solar_data = None
-
-
+except:
+    pass
 
 # 創建一個 SQLite 數據庫連接
 conn = sqlite3.connect('Database.db')
@@ -373,8 +362,6 @@ def logout():
     else:
         st.sidebar.info("請登錄或註冊。")
 
-
-
 def Interact_with_My_Data_using_AI():
     st.title("使用 AI 與您的數據互動")
     st.write("向 AI 提問複雜的聚合和關鍵問題，以從用戶數據中獲取答案。")
@@ -628,45 +615,45 @@ def overall_consumption():
     with col14:
         generate_pie_chart(filtered_dataa)
 
-    # 準備建模數據
+    # Prepare data for modeling
 
     st.markdown('---')
-    # 使用 Streamlit 顯示結果
-    st.title('每月能源消耗成本和預測\n\n\n.')
-    number_of_month = st.slider('選擇預測的月份數', 0, 12,
+    # Display results in Streamlit
+    st.title('Monthly Energy Consumption Cost and Forecast\n\n\n.')
+    number_of_month = st.slider('Select Number of Months to be Predicted for Approximate Cost', 0, 12,
                                 5)
 
-    # 創建日期索引
+    # Create a date index
     overall_consumption_data['Date'] = pd.to_datetime(overall_consumption_data[['Year', 'Month']].assign(DAY=1))
     overall_consumption_data.set_index('Date', inplace=True)
 
-    # 為 SARIMA 模型準備數據
+    # Prepare data for SARIMA model
     monthly_costs = overall_consumption_data['Total Price'].resample('M').sum()
 
     current_month_cost=monthly_costs[-1]
 
-    # 排除當月數據
+    # Exclude the current month's data
     current_month = monthly_costs.index[-1].strftime('%Y-%m')
     historical_costs = monthly_costs.loc[:monthly_costs.index[-2].strftime('%Y-%m')]
 
-    order = (1, 1, 1)  # SARIMA 訂單 (p, d, q)
-    seasonal_order = (1, 1, 1, 12)  # 季節性訂單 (P, D, Q, s)
+    order = (1, 1, 1)  # SARIMA order (p, d, q)
+    seasonal_order = (1, 1, 1, 12)  # Seasonal order (P, D, Q, s)
     sarima_model = sm.tsa.statespace.SARIMAX(historical_costs, order=order, seasonal_order=seasonal_order)
     fitted_sarima_model = sarima_model.fit()
 
-    # 預測未來 5 個月
+    # Predict the next 5 months
     forecast = fitted_sarima_model.forecast(steps=number_of_month)
 
-    # 確保預測值非負
+    # Ensure non-negative predictions
     forecast[forecast < 0] = 0
 
-    # 提取月份名稱和年份
+    # Extract month names and years
     month_names = forecast.index.strftime('%B')
     years = forecast.index.year
 
-    st.metric("\n\n當月成本", f"UAH {round(current_month_cost,2)} ")
+    st.metric("\n\nCurrent Month Cost so far ", f"UAH {round(current_month_cost,2)} ")
     cols = {"col1": st.columns(number_of_month)}
-    # 顯示指標
+    # Show metrics
     for i in range(1, number_of_month+1):
         with cols['col1'][i - 1]:
             predicted_cost = forecast[i - 1]
@@ -680,85 +667,84 @@ def overall_consumption():
                 else:
                     trend_color = "%"
 
-                st.metric(f"預測成本月份 {month_names[i - 1]} {years[i - 1]}",
+                st.metric(f"Predicted Cost Month {month_names[i - 1]} {years[i - 1]}",
                           f"UAH {predicted_cost:.2f} ",
                           trend_color)
             else:
-                st.metric(f"當月預測成本 {month_names[i - 1]} {years[i - 1]}",
+                st.metric(f"Predicted Cost Current Month {month_names[i - 1]} {years[i - 1]}",
                           f"UAH {predicted_cost:.2f}",
                           trend_color)
 
     st.markdown('---')
-    st.write("### 歷史數據和預測 ")
+    st.write("### Historical Data and Predictions ")
     col1,col2=st.columns([1,1])
-    # 繪製歷史數據和預測
+    # Plot historical data and prediction
     with col1:
         fig, ax = plt.subplots()
-        ax.plot(historical_costs.index, historical_costs, label='歷史每月成本')
-        forecast_index = pd.date_range(start=historical_costs.index[-1], periods=number_of_month+1, freq='M')[1:]  # 下一個 5 個月
-        ax.plot(forecast_index, forecast, 'ro', label='預測成本')
-        ax.set_title('每月能源成本和預測')
-        ax.set_xlabel('月份')
-        ax.set_ylabel('總成本（UAH）')
+        ax.plot(historical_costs.index, historical_costs, label='Historical Monthly Costs')
+        forecast_index = pd.date_range(start=historical_costs.index[-1], periods=number_of_month+1, freq='M')[1:]  # Next 5 months
+        ax.plot(forecast_index, forecast, 'ro', label='Forecasted Cost')
+        ax.set_title('Monthly Energy Costs and Forecast')
+        ax.set_xlabel('Month')
+        ax.set_ylabel('Total Cost (UAH)')
         ax.legend()
-        # 將 matplotlib 圖形轉換為 Plotly 圖形
+        # Convert matplotlib figure to Plotly figure
         plotly_fig = go.Figure()
         for trace in ax.get_lines():
             x = trace.get_xdata()
             y = trace.get_ydata()
             plotly_fig.add_trace(go.Scatter(x=x, y=y, mode='lines', name=trace.get_label()))
 
-        # 將 x 軸轉換為日期格式
+        # Convert x-axis to date format
         plotly_fig.update_xaxes(type='date')
 
-        # 使用 Streamlit 顯示 Plotly 圖形
+        # Display Plotly figure in Streamlit
         st.plotly_chart(plotly_fig)
 
     with col2:
-        # 顯示歷史數據和預測的條形圖
+        # Display bar chart for historical data and predictions
         bar_chart_data = pd.DataFrame({'Date': forecast_index, 'Predicted Cost': forecast})
 
-        # 繪製條形圖
+        # Plot bar chart
         fig_bar = go.Figure()
-        fig_bar.add_trace(go.Bar(x=month_names, y=bar_chart_data['Predicted Cost'], name='預測成本'))
-        fig_bar.update_layout(barmode='group', xaxis_title='月份', yaxis_title='總成本（UAH）',
-                              title='歷史數據和未來 5 個月的預測')
+        fig_bar.add_trace(go.Bar(x=month_names, y=bar_chart_data['Predicted Cost'], name='Predicted Cost'))
+        fig_bar.update_layout(barmode='group', xaxis_title='Month', yaxis_title='Total Cost (UAH)',
+                              title='Historical Data and Predictions for Next 5 Months')
         st.plotly_chart(fig_bar)
 
     st.markdown('---')
-    # 使用 Streamlit 顯示結果
-    st.title('每日能源消耗成本和預測\n\n\n.')
-    number_of_days = st.slider('選擇預測的天數', 0, 30, 7)
+    # Display results in Streamlit
+    st.title('Daily Energy Consumption Cost and Forecast\n\n\n.')
+    number_of_days = st.slider('Select Number of Days to be Predicted for Approximate Cost', 0, 30, 7)
 
-    # 重置索引以確保唯一標籤
+    # Reset index to ensure unique labels
     overall_consumption_data.reset_index(drop=True, inplace=True)
 
-    # 排除當日數據
+    # Exclude the current day's data
     historical_costs = overall_consumption_data['Total Price'][:-1]
 
-    # 獲取歷史數據中的最後日期
+    # Get the last date in the historical data
     last_date = historical_costs.index[-1]
 
-    # 為預測準備歷史數據
+    # Prepare historical data for forecasting
     historical_data = overall_consumption_data.loc[:last_date]
-    # SARIMA 模型設置
-    order = (1, 1, 1)  # SARIMA 訂單 (p, d, q)
-    seasonal_order = (1, 1, 1, 12)  # 季節性訂單 (P, D, Q, s)
+    # SARIMA model setup
+    order = (1, 1, 1)  # SARIMA order (p, d, q)
+    seasonal_order = (1, 1, 1, 12)  # Seasonal order (P, D, Q, s)
     sarima_model = sm.tsa.statespace.SARIMAX(historical_data['Total Price'], order=order, seasonal_order=seasonal_order)
     fitted_sarima_model = sarima_model.fit()
 
-    # 預測接下來的“number_of_days”天
+    # Predict the next 'number_of_days' days
     forecast = fitted_sarima_model.forecast(steps=number_of_days)
-    # 確保預測值非負
+    # Ensure non-negative predictions
     forecast[forecast < 0] = 0
 
-    # 提取日期名稱和年份
+    # Extract day names and years
     forecast_index = pd.date_range(start=get_upcoming_dates(len(forecast))[0], periods=number_of_days, freq='D')
     day_names = forecast_index.strftime('%A')
-    st.metric(f"\n\n當日成本", f"UAH {round(float(overall_consumption_data['Total Price'].iloc[-1]), 2)}")
+    st.metric(f"\n\nCurrent Day Cost so far", f"UAH {round(float(overall_consumption_data['Total Price'].iloc[-1]), 2)}")
     cols = st.columns(number_of_days)
-    # 顯示指標
-    
+    # Show metrics
     forecast=list(forecast)
     for i in range(number_of_days):
         predicted_cost = forecast[i]
@@ -772,246 +758,250 @@ def overall_consumption():
             else:
                 trend_color = "%"
 
-            cols[i].metric(f"預測成本 第 {day_names[i]} 天",
+            cols[i].metric(f"Predicted Cost Day {day_names[i]}",
                            f"UAH {predicted_cost:.2f}",
                            f"{trend_color}")
         else:
-            cols[i].metric(f"預測成本 第 {day_names[i]} 天",
+            cols[i].metric(f"Predicted Cost  Day {day_names[i]}",
                            f"UAH {predicted_cost:.2f}",
                            f"{trend_color}")
 
     st.markdown('---')
-    st.write("### 歷史數據和預測 ")
+    st.write("### Historical Data and Predictions ")
     col1, col2 = st.columns([1, 1])
-    # 繪製歷史數據和預測
+    # Plot historical data and prediction
     with col1:
         fig, ax = plt.subplots()
-        ax.plot(historical_costs.index, historical_costs, label='歷史每日成本')
-        ax.plot(forecast_index, forecast, 'ro', label='預測成本')
-        ax.set_title('每日能源成本和預測')
-        ax.set_xlabel('日期')
-        ax.set_ylabel('總成本（UAH）')
+        ax.plot(historical_costs.index, historical_costs, label='Historical Daily Costs')
+        ax.plot(forecast_index, forecast, 'ro', label='Forecasted Cost')
+        ax.set_title('Daily Energy Costs and Forecast')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Total Cost (UAH)')
         ax.legend()
-        # 將 matplotlib 圖形轉換為 Plotly 圖形
+        # Convert matplotlib figure to Plotly figure
         plotly_fig = go.Figure()
         for trace in ax.get_lines():
             x = trace.get_xdata()
             y = trace.get_ydata()
             plotly_fig.add_trace(go.Scatter(x=x, y=y, mode='lines', name=trace.get_label()))
 
-        # 將 x 軸轉換為日期格式
+        # Convert x-axis to date format
         plotly_fig.update_xaxes(type='date')
-        # 使用 Streamlit 顯示 Plotly 圖形
+        # Display Plotly figure in Streamlit
         st.plotly_chart(plotly_fig)
 
     with col2:
-        # 顯示歷史數據和預測的條形圖
+        # Display bar chart for historical data and predictions
         bar_chart_data = pd.DataFrame({'Date': forecast_index, 'Predicted Cost': forecast})
 
-        # 繪製條形圖
+        # Plot bar chart
         fig_bar = go.Figure()
-        fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['Predicted Cost'], name='預測成本'))
-        fig_bar.update_layout(xaxis_title='日期', yaxis_title='總成本（UAH）',
-                              title='歷史數據和未來幾天的預測')
+        fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['Predicted Cost'], name='Predicted Cost'))
+        fig_bar.update_layout(xaxis_title='Date', yaxis_title='Total Cost (UAH)',
+                              title='Historical Data and Predictions for Next Days')
         st.plotly_chart(fig_bar)
 
     st.markdown('---')
-    # 使用 Streamlit 顯示結果
-    st.title('家庭設備電力消耗\n\n\n.')
+
+    # time.sleep(10)
+    # add_random_consumption(f"Data/{st.session_state.username}-over-consumption.xlsx")
+    # st.rerun()
 
 def house_hold_consumption():
-    fig_stacked_bar=None
-    def get_upcoming_dates(num_days):
-        upcoming_dates = []
-        today = datetime.today()
-        for i in range(num_days):
-            next_date = today + timedelta(days=i + 1)
-            upcoming_dates.append(next_date.strftime('%Y-%m-%d'))
-        return upcoming_dates
-    refresh = st.button("刷新家庭設備儀表板", use_container_width=True)
-    if refresh:
-        add_households_consumption(f"Data/{st.session_state.username}-households-data.xlsx")
-        st.rerun()
-    house_holds_data['Date'] = pd.to_datetime(house_holds_data['Date'])
-    filtered_data = house_holds_data
+        fig_stacked_bar=None
+        def get_upcoming_dates(num_days):
+            upcoming_dates = []
+            today = datetime.today()
+            for i in range(num_days):
+                next_date = today + timedelta(days=i + 1)
+                upcoming_dates.append(next_date.strftime('%Y-%m-%d'))
+            return upcoming_dates
+        refresh = st.button("Refresh Houses Holds Dashboard", use_container_width=True)
+        if refresh:
+            add_households_consumption(f"Data/{st.session_state.username}-households-data.xlsx")
+            st.rerun()
+        house_holds_data['Date'] = pd.to_datetime(house_holds_data['Date'])
+        filtered_data = house_holds_data
 
-    st.title("家庭設備電力消耗")
-    st.write("儀表板顯示家庭設備的數據分析。\n\n\n\n\n.")
+        st.title("Household Devices Electricity Consumption")
+        st.write("Dashboard displays the Data Analytics for household devices.\n\n\n\n\n.")
 
-    # 將 'Date' 列轉換為 datetime 類型
-    house_holds_data['Date'] = pd.to_datetime(house_holds_data['Date'])
+        # Convert 'Date' column to datetime
 
-    # 篩選選項
-    devices = house_holds_data.columns[1:-1]
-    devices = ['所有設備'] + list(devices)
-    selected_item = st.selectbox("選擇家庭設備", devices, index=0)
-    col1,col2=st.columns([1,1])
-    with col1:
-        start_date = st.date_input("開始日期", house_holds_data['Date'].min())
-    with col2:
-        end_date = st.date_input("結束日期", house_holds_data['Date'].max())
 
-    st.markdown('---')
-    # 將日期輸入轉換為 datetime
-    start_date = pd.Timestamp(start_date)
-    end_date = pd.Timestamp(end_date)
+        # Filter options
+        devices = house_holds_data.columns[1:-1]
+        devices = ['All Devices'] + list(devices)
+        selected_item = st.selectbox("Select Household Item", devices, index=0)
+        col1,col2=st.columns([1,1])
+        with col1:
+            start_date = st.date_input("Start Date", house_holds_data['Date'].min())
+        with col2:
+            end_date = st.date_input("End Date", house_holds_data['Date'].max())
 
-    # 根據所選項和日期範圍篩選數據
-    if selected_item == '所有設備':
-        filtered_data = house_holds_data[(house_holds_data['Date'] >= start_date) & (house_holds_data['Date'] <= end_date)]
-        # 顯示所有設備的使用量隨時間變化的折線圖
-        fig = px.line(filtered_data, x='Date', y=filtered_data.columns[1:-1], title="所有設備的電力消耗隨時間變化")
+        st.markdown('---')
+        # Convert date inputs to datetime
+        start_date = pd.Timestamp(start_date)
+        end_date = pd.Timestamp(end_date)
 
-        # 顯示所有設備總消耗量隨時間變化的條形圖
-        total_consumption = filtered_data.drop(columns=['Date', 'total']).sum(axis=1)
-        fig_bar = go.Figure(data=[go.Bar(x=filtered_data['Date'], y=total_consumption)])
-        fig_bar.update_layout(title="所有設備的總電力消耗（千瓦時）隨時間變化", xaxis_title="日期",
-                              yaxis_title="消耗量（千瓦時）")
 
-        # 顯示各個設備的消耗量的堆積條形圖
-        fig_stacked_bar = go.Figure()
-        for device in devices[1:]:
-            fig_stacked_bar.add_trace(go.Bar(x=filtered_data['Date'], y=filtered_data[device], name=device))
 
-        fig_stacked_bar.update_layout(barmode='stack', title="各個設備的電力消耗（千瓦時）隨時間變化",
-                                      xaxis_title="日期", yaxis_title="消耗量（千瓦時）")
-    else:
-        updated_items = [x for x in devices if x != "所有設備" and x!= selected_item]
-        filtered_data=house_holds_data.drop(updated_items,axis=1)
-        filtered_data = filtered_data[(house_holds_data['Date'] >= start_date) & (filtered_data['Date'] <= end_date)]
-        # 顯示所選項的使用量隨時間變化的折線圖
-        fig = px.line(filtered_data, x='Date', y=selected_item, title=f"{selected_item} 的消耗量（千瓦時）隨時間變化")
-    filtered_data['Date'] = pd.to_datetime(filtered_data['Date'])
-    # 顯示其他指標
-    st.metric("總能耗", f"{round(filtered_data['total'].sum(), 2)} 千瓦時")
-    avg_daily_energy = filtered_data.drop('Date', axis=1).mean()
-    st.subheader("平均每日能耗")
-    cols = {"col1": st.columns(len(avg_daily_energy))}
-    counter = 1
-    # 計算每個類別的平均每日能耗
-    for category, value in avg_daily_energy.items():
-        with cols['col1'][counter - 1]:
-            counter += 1
-            st.metric(f"({category})", f"{round(value, 2)} 千瓦時")
+        # Filter data based on selected item and date range
+        if selected_item == 'All Devices':
+            filtered_data = house_holds_data[(house_holds_data['Date'] >= start_date) & (house_holds_data['Date'] <= end_date)]
+            # Line chart showing usage over time for all devices
+            fig = px.line(filtered_data, x='Date', y=filtered_data.columns[1:-1], title="Electricity Consumption of All Devices Over Time")
 
-    # 識別每日的峰值能耗
-    st.markdown('---')
-    filtered_data['Peak Category'] = filtered_data.drop(['Date', 'total'], axis=1).idxmax(axis=1)
-    peak_counts = filtered_data['Peak Category'].value_counts()
-    st.subheader("峰值能耗")
-    cols = {"col1": st.columns(len(peak_counts))}
-    counter = 1
-    for category, count in peak_counts.items():
-        with cols['col1'][counter - 1]:
-            counter += 1
-            st.metric(f"({category})", f"{round(value, 2)} 千瓦時")
-    st.markdown('---')
-    col1, col2, = st.columns([1, 1])
-    with col1:
-        st.subheader("數據相關性和描述")
-        st.write(filtered_data.drop([ 'Date'], axis=1).describe())
-    with col2:
-        st.subheader("篩選後的數據")
-        st.write(filtered_data, height=90)
-    st.markdown('---')
-    if fig_stacked_bar:
-        st.plotly_chart(fig_stacked_bar, use_container_width=True)
-    else:
-        st.plotly_chart(fig,use_container_width=True)
+            # Bar plot showing total consumption of all devices over time
+            total_consumption = filtered_data.drop(columns=['Date', 'total']).sum(axis=1)
+            fig_bar = go.Figure(data=[go.Bar(x=filtered_data['Date'], y=total_consumption)])
+            fig_bar.update_layout(title="Total Electricity Consumption in KWh of All Devices Over Time", xaxis_title="Date",
+                                  yaxis_title="Consumption (KWh)")
 
-    col1,col2=st.columns([1,1])
-    # 顯示每個項目在總值中的比例的餅圖
-    with col1:
-        total_values = filtered_data.drop(columns=['Date', 'total','Peak Category']).sum(axis=0)
-        fig_pie = px.pie(values=total_values, names=total_values.index, title="家庭設備的電力消耗")
-        st.plotly_chart(fig_pie)
+            # Stacked bar plot showing consumption of individual devices
+            fig_stacked_bar = go.Figure()
+            for device in devices[1:]:
+                fig_stacked_bar.add_trace(go.Bar(x=filtered_data['Date'], y=filtered_data[device], name=device))
 
-    with col2:
-        # 計算每個設備的總消耗量
-        device_sum =total_values
-        device_sum_sorted = device_sum.sort_values(ascending=False)
-
-        # 創建水平條形圖
-        fig = go.Figure(go.Bar(
-            x=device_sum_sorted.values,
-            y=device_sum_sorted.index,
-            orientation='h',
-            text=[f'{device}: {usage} 千瓦時' for device, usage in zip(device_sum_sorted.index, device_sum_sorted.values)],
-            textposition='auto'
-        ))
-
-        fig.update_layout(title="每個設備的總消耗量",
-                          xaxis_title="總消耗量（千瓦時）",
-                          yaxis_title="設備",
-                          yaxis_categoryorder='total ascending')
-
-        # 使用 Streamlit 顯示圖表
-        st.plotly_chart(fig)
-
-    st.markdown('---')
-    # 使用 Streamlit 顯示結果
-    st.title('家庭設備消耗預測\n\n\n.')
-    number_of_days = st.slider('選擇預測的天數', 0, 30, 7)
-
-    # 重置索引以確保唯一標籤
-    house_holds_data.reset_index(drop=True, inplace=True)
-
-    # 排除當日數據
-    historical_costs = house_holds_data['total'][:-1]
-
-    # 獲取歷史數據中的最後日期
-    last_date = historical_costs.index[-1]
-
-    # 為預測準備歷史數據
-    historical_data = house_holds_data.loc[:last_date]
-    # SARIMA 模型設置
-    order = (1, 1, 1)  # SARIMA 訂單 (p, d, q)
-    seasonal_order = (1, 1, 1, 12)  # 季節性訂單 (P, D, Q, s)
-    sarima_model = sm.tsa.statespace.SARIMAX(historical_data['total'], order=order, seasonal_order=seasonal_order)
-    fitted_sarima_model = sarima_model.fit()
-    # 預測接下來的“number_of_days”天
-    forecast = fitted_sarima_model.forecast(steps=number_of_days)
-    # 確保預測值非負
-    forecast[forecast < 0] = 0
-
-    # 提取日期名稱和年份
-    forecast_index = pd.date_range(start=get_upcoming_dates(len(forecast))[0], periods=number_of_days, freq='D')
-    day_names = forecast_index.strftime('%A')
-    st.metric(f"\n\n當日設備總消耗", f"{round(float(house_holds_data['total'].iloc[-1]), 2)} 千瓦時")
-    cols = st.columns(number_of_days)
-    # 顯示指標
-    forecast=list(forecast)
-    for i in range(number_of_days):
-        predicted_cost = forecast[i]
-        previous_cost = forecast[i - 1] if i > 0 else None
-        trend_color = ""
-        if previous_cost is not None:
-            if predicted_cost > previous_cost:
-                trend_color = "%"
-            elif predicted_cost < previous_cost:
-                trend_color = "-%"
-            else:
-                trend_color = "%"
-
-            cols[i].metric(f"預測（ {day_names[i]} ）",
-                           f"{predicted_cost:.2f} （千瓦時）",
-                           f"{trend_color}")
+            fig_stacked_bar.update_layout(barmode='stack', title="Electricity Consumption in KWh of Individual Devices Over Time",
+                                          xaxis_title="Date", yaxis_title="Consumption (KWh)")
         else:
-            cols[i].metric(f"預測（ {day_names[i]} ）",
-                           f"{predicted_cost:.2f} （千瓦時）",
-                           f"{trend_color}")
+            updated_items = [x for x in devices if x != "All Devices" and x!= selected_item]
+            filtered_data=house_holds_data.drop(updated_items,axis=1)
+            filtered_data = filtered_data[(house_holds_data['Date'] >= start_date) & (filtered_data['Date'] <= end_date)]
+            # Line chart showing usage over time for the selected item
+            fig = px.line(filtered_data, x='Date', y=selected_item, title=f"{selected_item} Consumption in KWh Over Time")
+        filtered_data['Date'] = pd.to_datetime(filtered_data['Date'])
+            # Display additional metrics using st.metric
+        st.metric("Total Energy Consumption", f"{round(filtered_data['total'].sum(), 2)} KWh")
+        avg_daily_energy = filtered_data.drop('Date', axis=1).mean()
+        st.subheader("Average Daily Energy")
+        cols = {"col1": st.columns(len(avg_daily_energy))}
+        counter = 1
+            # Calculate average daily energy consumption per category
+        for category, value in avg_daily_energy.items():
+            with cols['col1'][counter - 1]:
+                counter += 1
+                st.metric(f"({category})", f"{round(value, 2)} KWh")
 
-    st.markdown('---')
-    st.write("### 歷史數據和預測 ")
-    # 顯示歷史數據和預測的條形圖
-    bar_chart_data = pd.DataFrame({'Date': forecast_index, 'Predicted consumpition': forecast})
+            # Identify peak energy consumption per day
+        st.markdown('---')
+        filtered_data['Peak Category'] = filtered_data.drop(['Date', 'total'], axis=1).idxmax(axis=1)
+        peak_counts = filtered_data['Peak Category'].value_counts()
+        st.subheader("Peak Energy Consumption")
+        cols = {"col1": st.columns(len(peak_counts))}
+        counter = 1
+        for category, count in peak_counts.items():
+            with cols['col1'][counter - 1]:
+                counter += 1
+                st.metric(f"({category})", f"{round(value, 2)} KWh")
+        st.markdown('---')
+        col1, col2, = st.columns([1, 1])
+        with col1:
+            st.subheader("Data Corelation and Description")
+            st.write(filtered_data.drop([ 'Date'], axis=1).describe())
+        with col2:
+            st.subheader("Filtered Data")
+            st.write(filtered_data, height=90)
+        st.markdown('---')
+        if fig_stacked_bar:
+            st.plotly_chart(fig_stacked_bar, use_container_width=True)
+        else:
+            st.plotly_chart(fig,use_container_width=True)
 
-    # 繪製條形圖
-    fig_bar = go.Figure()
-    fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['Predicted consumpition'], name='預測消耗量'))
-    fig_bar.update_layout(xaxis_title='日期', yaxis_title='所有設備的總消耗量（千瓦時）',
-                          title='歷史數據和未來幾天的預測')
-    st.plotly_chart(fig_bar,use_container_width=True)
+        col1,col2=st.columns([1,1])
+        # Pie chart showing participation of each item in total value
+        with col1:
+            total_values = filtered_data.drop(columns=['Date', 'total','Peak Category']).sum(axis=0)
+            fig_pie = px.pie(values=total_values, names=total_values.index, title="House Holds Devices Electricity Consumption")
+            st.plotly_chart(fig_pie)
+
+        with col2:
+            # Sum consumption values for each device
+            device_sum =total_values
+            device_sum_sorted = device_sum.sort_values(ascending=False)
+
+            # Create horizontal bar plot
+            fig = go.Figure(go.Bar(
+                x=device_sum_sorted.values,
+                y=device_sum_sorted.index,
+                orientation='h',
+                text=[f'{device}: {usage} KWh' for device, usage in zip(device_sum_sorted.index, device_sum_sorted.values)],
+                textposition='auto'
+            ))
+
+            fig.update_layout(title="Total Consumption of Each Device",
+                              xaxis_title="Total Consumption (KWh)",
+                              yaxis_title="Devices",
+                              yaxis_categoryorder='total ascending')
+
+            # Display the plot using Streamlit
+            st.plotly_chart(fig)
+
+        st.markdown('---')
+        # Display results in Streamlit
+        st.title('House Holds Devices Consumption Forcast\n\n\n.')
+        number_of_days = st.slider('Select Number of Days to be Predicted for Approximate Consumption of all Devices', 0, 30, 7)
+
+        # Reset index to ensure unique labels
+        house_holds_data.reset_index(drop=True, inplace=True)
+
+        # Exclude the current day's data
+        historical_costs = house_holds_data['total'][:-1]
+
+        # Get the last date in the historical data
+        last_date = historical_costs.index[-1]
+
+        # Prepare historical data for forecasting
+        historical_data = house_holds_data.loc[:last_date]
+        # SARIMA model setup
+        order = (1, 1, 1)  # SARIMA order (p, d, q)
+        seasonal_order = (1, 1, 1, 12)  # Seasonal order (P, D, Q, s)
+        sarima_model = sm.tsa.statespace.SARIMAX(historical_data['total'], order=order, seasonal_order=seasonal_order)
+        fitted_sarima_model = sarima_model.fit()
+        # Predict the next 'number_of_days' days
+        forecast = fitted_sarima_model.forecast(steps=number_of_days)
+        # Ensure non-negative predictions
+        forecast[forecast < 0] = 0
+
+        # Extract day names and years
+        forecast_index = pd.date_range(start=get_upcoming_dates(len(forecast))[0], periods=number_of_days, freq='D')
+        day_names = forecast_index.strftime('%A')
+        st.metric(f"\n\nCurrent Day Devices Total Consumption so far", f"{round(float(house_holds_data['total'].iloc[-1]), 2)} KWh")
+        cols = st.columns(number_of_days)
+        # Show metrics
+        forecast=list(forecast)
+        for i in range(number_of_days):
+            predicted_cost = forecast[i]
+            previous_cost = forecast[i - 1] if i > 0 else None
+            trend_color = ""
+            if previous_cost is not None:
+                if predicted_cost > previous_cost:
+                    trend_color = "%"
+                elif predicted_cost < previous_cost:
+                    trend_color = "-%"
+                else:
+                    trend_color = "%"
+
+                cols[i].metric(f"Predicted ( {day_names[i]} )",
+                               f"{predicted_cost:.2f} (KWh)",
+                               f"{trend_color}")
+            else:
+                cols[i].metric(f"Predicted ( {day_names[i]} )",
+                               f"{predicted_cost:.2f} (KWh)",
+                               f"{trend_color}")
+
+        st.markdown('---')
+        st.write("### Historical Data and Predictions ")
+                # Display bar chart for historical data and predictions
+        bar_chart_data = pd.DataFrame({'Date': forecast_index, 'Predicted consumpition': forecast})
+
+            # Plot bar chart
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['Predicted consumpition'], name='Predicted consumpition'))
+        fig_bar.update_layout(xaxis_title='Date', yaxis_title='Total consumption of all Devices (KWh)',
+                                  title='Historical Data and Predictions for Next Days')
+        st.plotly_chart(fig_bar,use_container_width=True)
 
 def solar_dacipation():
     def get_upcoming_dates(num_days):
@@ -1026,65 +1016,32 @@ def solar_dacipation():
         add_solar_consumption(f"Data/{st.session_state.username}-solar-data.xlsx")
         st.rerun()
 
-    st.title("太陽能消耗和節省")
-    st.write(
-        "儀表板顯示太陽能發電、消耗和節省的數據分析。\n\n\n\n\n.")
 
-    # 日期範圍篩選
+    st.title("Solar Consumption and Saving")
+    st.write(
+            "Dashboard displays the Data Analytics for the Solar Power Generation, Dicipation and Saving.\n\n\n\n\n.")
+
+    # Date range filter
     solar_data['Date'] = pd.to_datetime(solar_data['Date'])
 
-    # 日期範圍篩選
+    # Date range filter
     col1, col2 = st.columns([1, 1])
     with col1:
-        start_date = st.date_input("開始日期", solar_data['Date'].min())
+        start_date = st.date_input("Start Date", solar_data['Date'].min())
     with col2:
-        end_date = st.date_input("結束日期", solar_data['Date'].max())
+        end_date = st.date_input("End Date", solar_data['Date'].max())
 
     st.markdown('---')
-
-
-
-
-    # 將日期輸入轉換為 datetime
+    # Convert date inputs to datetime
     start_date = pd.Timestamp(start_date)
     end_date = pd.Timestamp(end_date)
 
 
-filtered_data = solar_data[(solar_data['Date'] >= start_date) & (solar_data['Date'] <= end_date)]
-
-# 根據所選日期範圍篩選數據
-# 計算指標
-
-average_solar_generation = filtered_data['Solar Gird Generation'].mean()
-average_consumption = filtered_data['Consumption and Dicipation'].mean()
-average_solar_saving = filtered_data['Solar Saving and backup'].mean()
-total_solar_generation = filtered_data['Solar Gird Generation'].sum()
-total_solar_saving = filtered_data['Solar Saving and backup'].sum()
-total_consumption = filtered_data['Consumption and Dicipation'].sum()
-peak_solar_generation = filtered_data.loc[filtered_data['Solar Gird Generation'].idxmax(), 'Solar Gird Generation']
-peak_consumption = filtered_data.loc[filtered_data['Consumption and Dicipation'].idxmax(), 'Consumption and Dicipation']
-peak_solar_saving = filtered_data.loc[filtered_data['Solar Saving and backup'].idxmax(), 'Solar Saving and backup']
-  
-
-
-    # 獲取當前日期
-current_date = pd.to_datetime('today').date()
-
-    
-    
-#(3/25)# 篩選當日數據  確保solar_data 變量之前進行檢查和初始化。
-
-if solar_data is not None and house_holds_data is not None and overall_consumption_data is not None:
-    # 設置 current_date
-    current_date = datetime.now().date()
-
-    # 設置 start_date 和 end_date
-    start_date = solar_data['Date'].min()
-    end_date = solar_data['Date'].max()
-
     filtered_data = solar_data[(solar_data['Date'] >= start_date) & (solar_data['Date'] <= end_date)]
 
-    # 根據所選日期範圍篩選數據並計算指標
+    # Filter the data based on the selected date range
+    # Calculate metrics
+
     average_solar_generation = filtered_data['Solar Gird Generation'].mean()
     average_consumption = filtered_data['Consumption and Dicipation'].mean()
     average_solar_saving = filtered_data['Solar Saving and backup'].mean()
@@ -1094,194 +1051,183 @@ if solar_data is not None and house_holds_data is not None and overall_consumpti
     peak_solar_generation = filtered_data.loc[filtered_data['Solar Gird Generation'].idxmax(), 'Solar Gird Generation']
     peak_consumption = filtered_data.loc[filtered_data['Consumption and Dicipation'].idxmax(), 'Consumption and Dicipation']
     peak_solar_saving = filtered_data.loc[filtered_data['Solar Saving and backup'].idxmax(), 'Solar Saving and backup']
-  
-    # 獲取當前日期
+    # Get the current date
     current_date = pd.to_datetime('today').date()
-    
-    # 篩選當日數據
+
+    # Filter data for the current day
     current_day_data = solar_data[solar_data['Date'].dt.date == current_date]
     current_day_solar_generation = current_day_data['Solar Gird Generation'].sum()
     current_day_solar_diciptation = current_day_data['Consumption and Dicipation'].sum()
     current_day_solar_saving = current_day_data['Solar Saving and backup'].sum()
     col00,col0,col000,col4=st.columns([1, 1, 1, 1])
     with col0:
-        st.metric("今天的太陽能發電量", f"{round(current_day_solar_generation, 2)} kWh",
+        st.metric("Today Solar Generation so far", f"{round(current_day_solar_generation, 2)} KWh",
                   round((average_solar_generation / average_consumption) * 100, 2))
     with col00:
-        st.metric("今天的太陽能消耗量", f"{round(current_day_solar_diciptation, 2)} kWh",
+        st.metric("Today Solar Dicipation so far", f"{round(current_day_solar_diciptation, 2)} KWh",
                   round((average_solar_generation / average_consumption) * 100, 2))
     with col000:
-        st.metric("今天的太陽能儲存量", f"{round(current_day_solar_saving, 2)} kWh",
+        st.metric("Today Solar Saving", f"{round(current_day_solar_saving, 2)} KWh",
                   round((average_solar_generation / average_consumption) * 100, 2))
     with col4:
-        st.metric("總體太陽能效率", f"{round((total_solar_saving / total_solar_generation) * 100, 2) } kWh")
+        st.metric("Overall Solar Efficiency", f"{round((total_solar_saving / total_solar_generation) * 100, 2) } KWh")
 
     st.markdown('---')
     col1, col2, col3, col5, col6, col7 = st.columns([1, 1, 1, 1, 1, 1])
 
     with col1:
-        st.metric("平均每日太陽能發電量", f"{round(average_solar_generation, 2) } kWh",
-                  round((average_solar_generation / average_consumption) * 100, 2))
+        st.metric("Average Daily Solar Generation", f"{round(average_solar_generation, 2) } KWh",
+              round((average_solar_generation / average_consumption) * 100, 2))
     with col2:
-        st.metric("平均每日消耗量", f"{round(average_consumption, 2) } kWh",
-                  round((average_consumption / average_solar_generation) * 100, 2))
+        st.metric("Average Daily Consumption", f"{round(average_consumption, 2) } KWh",
+              round((average_consumption / average_solar_generation) * 100, 2))
     with col3:
-        st.metric("平均每日太陽能儲存量", f"{round(average_solar_saving, 2) } kWh",
-                  round((average_solar_saving / average_solar_generation) * 100, 2))
+        st.metric("Average Daily Solar Saving", f"{round(average_solar_saving, 2) } KWh",
+              round((average_solar_saving / average_solar_generation) * 100, 2))
 
     with col5:
-        st.metric("最大太陽能發電量",f"{ round(peak_solar_generation, 2) } kWh",
-                  round((peak_solar_generation / total_solar_generation) * 100, 2))
+        st.metric("Peak Solar Generation Day",f"{ round(peak_solar_generation, 2) } KWh",
+              round((peak_solar_generation / total_solar_generation) * 100, 2))
     with col6:
-        st.metric("最大消耗量", f"{round(peak_consumption, 2) } kWh",
-                  round((peak_consumption / total_consumption) * 100, 2))
+        st.metric("Peak Consumption Day", f"{round(peak_consumption, 2) } KWh",
+              round((peak_consumption / total_consumption) * 100, 2))
     with col7:
-        st.metric("最大太陽能儲存量", f"{round(peak_solar_saving, 2) } kWh",
-                  round((peak_solar_saving / total_solar_saving) * 100, 2))
+        st.metric("Peak Solar Saving Day", f"{round(peak_solar_saving, 2) } KWh",
+              round((peak_solar_saving / total_solar_saving) * 100, 2))
 
     st.markdown('---')
     col1,col2,=st.columns([1,1])
     with col1:
-        st.subheader("數據相關性和描述")
+        st.subheader("Data Corelation and Description")
         st.write(filtered_data.drop(['Date'],axis=1).describe())
     with col2:
-        st.subheader("過濾後的數據")
+        st.subheader("Filtered Data")
         st.write(filtered_data,height=90)
 
     fig3 = px.bar(filtered_data, x='Date', y=['Solar Gird Generation', 'Consumption and Dicipation', 'Solar Saving and backup'],
-                  title='特定日期的太陽能發電、消耗和儲存',
+                  title='Solar Generation, Consumption, and Savings on Specific Dates',
                   barmode='stack')
     st.plotly_chart(fig3, use_container_width=True)
 
     st.markdown('---')
-    # 顯示結果在 Streamlit 中
-    st.title('太陽能預測\n\n\n.')
-    number_of_days = st.slider('選擇要預測的天數約發電量', 0, 30, 7)
-    # 重置索引以確保唯一標籤
+        # Display results in Streamlit
+    st.title('Solar Forcast\n\n\n.')
+    number_of_days = st.slider('Select Number of Days to be Predicted for Approximate Generation', 0, 30, 7)
+        # Reset index to ensure unique labels
     solar_data.reset_index(drop=True, inplace=True)
 
-    # 排除當天數據
+        # Exclude the current day's data
     historical_costs = solar_data['Solar Gird Generation'][:-1]
 
-    # 獲取歷史數據中的最後日期
+        # Get the last date in the historical data
     last_date = historical_costs.index[-1]
 
-    # 為預測準備歷史數據
+        # Prepare historical data for forecasting
     historical_data = solar_data.loc[:last_date]
-    # SARIMA 模型設置
-    order = (1, 1, 1)  # SARIMA 順序 (p, d, q)
-    seasonal_order = (1, 1, 1, 12)  # 季節順序 (P, D, Q, s)
+        # SARIMA model setup
+    order = (1, 1, 1)  # SARIMA order (p, d, q)
+    seasonal_order = (1, 1, 1, 12)  # Seasonal order (P, D, Q, s)
     sarima_model = sm.tsa.statespace.SARIMAX(historical_data['Solar Gird Generation'], order=order, seasonal_order=seasonal_order)
     fitted_sarima_model = sarima_model.fit()
-    # 預測接下來的 'number_of_days' 天
+        # Predict the next 'number_of_days' days
     forecast = fitted_sarima_model.forecast(steps=number_of_days)
-    # 確保非負預測
+        # Ensure non-negative predictions
     forecast[forecast < 0] = 0
 
-    # 提取日期名稱和年份
-    def get_upcoming_dates(num_days):
-        upcoming_dates = []
-        today = datetime.today()
-        for i in range(num_days):
-            next_date = today + timedelta(days=i + 1)
-            upcoming_dates.append(next_date.strftime('%Y-%m-%d'))
-        return upcoming_dates
-
+        # Extract day names and years
     forecast_index = pd.date_range(start=get_upcoming_dates(len(forecast))[0], periods=number_of_days, freq='D')
     day_names = forecast_index.strftime('%A')
-    st.metric(f"\n\n當天消耗量", f"{round(float(solar_data['Solar Gird Generation'].iloc[-1]), 2)} kWh")
+    st.metric(f"\n\nCurrent Day Consumption so Generation", f"{round(float(solar_data['Solar Gird Generation'].iloc[-1]), 2)} KWh")
     cols = st.columns(number_of_days)
-    # 顯示指標
+        # Show metrics
     forecast=list(forecast)
     for i in range(number_of_days):
-        predicted_cost = forecast[i]
-        previous_cost = forecast[i - 1] if i > 0 else None
-        trend_color = ""
-        if previous_cost is not None:
-            if predicted_cost > previous_cost:
-                trend_color = "%"
-            elif predicted_cost < previous_cost:
-                trend_color = "-%"
-            else:
-                trend_color = "%"
+            predicted_cost = forecast[i]
+            previous_cost = forecast[i - 1] if i > 0 else None
+            trend_color = ""
+            if previous_cost is not None:
+                if predicted_cost > previous_cost:
+                    trend_color = "%"
+                elif predicted_cost < previous_cost:
+                    trend_color = "-%"
+                else:
+                    trend_color = "%"
 
-            cols[i].metric(f"預測 ({day_names[i]})",
-                           f"{predicted_cost:.2f} (kWh)",
-                           f"{trend_color}")
-        else:
-            cols[i].metric(f"預測 ({day_names[i]})",
-                           f"{predicted_cost:.2f} (kWh)",
-                           f"{trend_color}")
+                cols[i].metric(f"Predicted ( {day_names[i]} )",
+                               f"{predicted_cost:.2f} (KWh)",
+                               f"{trend_color}")
+            else:
+                cols[i].metric(f"Predicted ( {day_names[i]} )",
+                               f"{predicted_cost:.2f} (KWh)",
+                               f"{trend_color}")
 
     st.markdown('---')
-    st.write("### 歷史數據和預測 ")
-    # 顯示歷史數據和預測的柱狀圖
-    bar_chart_data = pd.DataFrame({'Date': forecast_index, '預測發電量': forecast})
+    st.write("### Historical Data and Predictions ")
+                # Display bar chart for historical data and predictions
+    bar_chart_data = pd.DataFrame({'Date': forecast_index, 'Predicted Solar Gird Generation': forecast})
 
-    # 繪製柱狀圖
+            # Plot bar chart
     fig_bar = go.Figure()
-    fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['預測發電量'], name='預測發電量'))
-    fig_bar.update_layout(xaxis_title='日期', yaxis_title='總發電量 (kWh)',
-                          title='未來幾天的歷史數據和預測')
+    fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['Predicted Solar Gird Generation'], name='Predicted Solar Gird Generation'))
+    fig_bar.update_layout(xaxis_title='Date', yaxis_title='Total Solar Gird Generation (KWh)',
+                                  title='Historical Data and Predictions for Next Days')
     st.plotly_chart(fig_bar,use_container_width=True)
 
-    st.markdown('---')
 
-    # 在 Streamlit 應用程序頂部設置標題
-    if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
-        st.set_page_config(
-            page_title="能源消耗分析",
-            page_icon="Images/Lgo-Image-Eletric.png",  # 您可以使用表情符號或提供圖標的 URL
-            layout="wide",  # 將佈局設置為寬
-        )
-    else:
-        st.set_page_config(
-            page_title="Hsieh",
-            page_icon="Images/Lgo-Image-Eletric.png",  # 您可以使用表情符號或提供圖標的 URL
-        )
 
-    st.markdown("""
-    <script>
-    document.body.style.zoom = 0.8;
-    </script>
-    """, unsafe_allow_html=True)
-    st.markdown("""
-    <script>
-    document.body.style.zoom = 0.8;
-    </script>
-    """, unsafe_allow_html=True)
 
-    # 應用程序導航
-    def main():
-        st.sidebar.image("Images/Lgo-Image-Eletric.png", caption="能源消耗分析", use_column_width=True)
-
-        if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
-            pages = {
-                "首頁": home,
-                "個人資料": profile,
-                "總體消耗": overall_consumption,
-                "家庭消耗": house_hold_consumption,
-                "太陽能消耗": solar_dacipation,
-                "使用 AI 與數據互動": Interact_with_My_Data_using_AI,
-                "登出帳戶": logout,
-            }
-            st.sidebar.title("能源分析")
-            st.sidebar.markdown(f'Logged in as<span style="text-decoration:none; color:white ;">&nbsp;{st.session_state.user_good_name}</span>',unsafe_allow_html=True)
-           
-
-        else:
-            pages = {
-                "使用現有帳戶登錄": Login,
-                "註冊新的帳戶": Register,
-            }
-            st.sidebar.title("帳戶")
-
-        selection = st.sidebar.selectbox("選擇頁面導航", list(pages.keys()))
-        page = pages[selection]
-        page()
-
-    if __name__ == "__main__":
-        main()
+# Set the title at the top of the Streamlit app
+if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
+    st.set_page_config(
+    page_title="Energy Consumption Analytics",
+    page_icon="Images/Lgo-Image-Eletric.png",  # You can use an emoji or provide a URL to an icon
+    layout="wide",  # Set the layout to wide
+    )
 else:
-    st.error("數據加載失敗，請檢查文件是否存在並且格式正確。")
+    st.set_page_config(
+        page_title="Hsieh",
+        page_icon="Images/Lgo-Image-Eletric.png",  # You can use an emoji or provide a URL to an icon
+    )
 
+st.markdown("""
+<script>
+document.body.style.zoom = 0.8;
+</script>
+""", unsafe_allow_html=True)
+st.markdown("""
+<script>
+document.body.style.zoom = 0.8;
+</script>
+""", unsafe_allow_html=True)
+
+# 應用程序導航
+def main():
+    st.sidebar.image("Images/Lgo-Image-Eletric.png", caption="能源消耗分析", use_column_width=True)
+
+    if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
+        pages = {
+            "首頁": home,
+            "個人資料": profile,
+            "總體消耗": overall_consumption,
+            "家庭消耗": house_hold_consumption,
+            "太陽能消耗": solar_dacipation,
+            "使用 AI 與數據互動": Interact_with_My_Data_using_AI,
+            "登出帳戶": logout,
+        }
+        st.sidebar.title("能源分析")
+        st.sidebar.markdown(f'以<span style="text-decoration:none; color:white ;">&nbsp;{st.session_state.user_good_name}</span> 登錄', unsafe_allow_html=True)
+        st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
+    else:
+        pages = {
+            "使用現有帳戶登錄": Login,
+            "註冊新的帳戶": Register,
+        }
+        st.sidebar.title("帳戶")
+
+    selection = st.sidebar.selectbox("選擇頁面導航", list(pages.keys()))
+    page = pages[selection]
+    page()
+
+if __name__ == "__main__":
+    main()
