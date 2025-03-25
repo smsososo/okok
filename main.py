@@ -46,20 +46,27 @@ overall_consumption_data=None
 house_holds_data=None
 solar_data=None
 
+#變量正確加載
 try:
     overall_consumption_data = pd.read_excel(f"Data/{st.session_state.username}-over-consumption.xlsx")
     overall_consumption_data['Date'] = pd.to_datetime(overall_consumption_data['Date'])
     update_consumption_data(f"Data/{st.session_state.username}-over-consumption.xlsx")
+    print("Overall consumption data loaded successfully")
 
     house_holds_data = pd.read_excel(f"Data/{st.session_state.username}-households-data.xlsx")
     house_holds_data['Date'] = pd.to_datetime(house_holds_data['Date'])
     update_households_data(f"Data/{st.session_state.username}-households-data.xlsx")
+    print("Households data loaded successfully")
 
     solar_data = pd.read_excel(f"Data/{st.session_state.username}-solar-data.xlsx")
     solar_data['Date'] = pd.to_datetime(solar_data['Date'])
     update_solar_data(f"Data/{st.session_state.username}-solar-data.xlsx")
-except:
-    pass
+    print("Solar data loaded successfully")
+except Exception as e:
+    print(f"Error loading data: {e}")
+    overall_consumption_data = None
+    house_holds_data = None
+    solar_data = None
 
 # 創建一個 SQLite 數據庫連接
 conn = sqlite3.connect('Database.db')
@@ -1033,25 +1040,27 @@ def solar_dacipation():
     end_date = pd.Timestamp(end_date)
 
 
-    filtered_data = solar_data[(solar_data['Date'] >= start_date) & (solar_data['Date'] <= end_date)]
+filtered_data = solar_data[(solar_data['Date'] >= start_date) & (solar_data['Date'] <= end_date)]
 
     # 根據所選日期範圍篩選數據
     # 計算指標
 
-    average_solar_generation = filtered_data['Solar Gird Generation'].mean()
-    average_consumption = filtered_data['Consumption and Dicipation'].mean()
-    average_solar_saving = filtered_data['Solar Saving and backup'].mean()
-    total_solar_generation = filtered_data['Solar Gird Generation'].sum()
-    total_solar_saving = filtered_data['Solar Saving and backup'].sum()
-    total_consumption = filtered_data['Consumption and Dicipation'].sum()
-    peak_solar_generation = filtered_data.loc[filtered_data['Solar Gird Generation'].idxmax(), 'Solar Gird Generation']
-    peak_consumption = filtered_data.loc[filtered_data['Consumption and Dicipation'].idxmax(), 'Consumption and Dicipation']
-    peak_solar_saving = filtered_data.loc[filtered_data['Solar Saving and backup'].idxmax(), 'Solar Saving and backup']
+average_solar_generation = filtered_data['Solar Gird Generation'].mean()
+average_consumption = filtered_data['Consumption and Dicipation'].mean()
+average_solar_saving = filtered_data['Solar Saving and backup'].mean()
+total_solar_generation = filtered_data['Solar Gird Generation'].sum()
+total_solar_saving = filtered_data['Solar Saving and backup'].sum()
+total_consumption = filtered_data['Consumption and Dicipation'].sum()
+peak_solar_generation = filtered_data.loc[filtered_data['Solar Gird Generation'].idxmax(), 'Solar Gird Generation']
+peak_consumption = filtered_data.loc[filtered_data['Consumption and Dicipation'].idxmax(), 'Consumption and Dicipation']
+peak_solar_saving = filtered_data.loc[filtered_data['Solar Saving and backup'].idxmax(), 'Solar Saving and backup']
+  
+  
+  
     # 獲取當前日期
-    current_date = pd.to_datetime('today').date()
+current_date = pd.to_datetime('today').date()
 
     # 篩選當日數據
-    
     
 current_day_data = solar_data[solar_data['Date'].dt.date == current_date]
 current_day_solar_generation = current_day_data['Solar Gird Generation'].sum()
@@ -1078,7 +1087,7 @@ with col1:
               round((average_solar_generation / average_consumption) * 100, 2))
 with col2:
     st.metric("平均每日消耗量", f"{round(average_consumption, 2) } kWh",
-              round((average消耗量 / average_solar_generation) * 100, 2))
+              round((average_consumption / average_solar_generation) * 100, 2))
 with col3:
     st.metric("平均每日太陽能儲存量", f"{round(average_solar_saving, 2) } kWh",
               round((average_solar_saving / average_solar_generation) * 100, 2))
@@ -1133,6 +1142,14 @@ forecast = fitted_sarima_model.forecast(steps=number_of_days)
 forecast[forecast < 0] = 0
 
 # 提取日期名稱和年份
+def get_upcoming_dates(num_days):
+    upcoming_dates = []
+    today = datetime.today()
+    for i in range(num_days):
+        next_date = today + timedelta(days=i + 1)
+        upcoming_dates.append(next_date.strftime('%Y-%m-%d'))
+    return upcoming_dates
+
 forecast_index = pd.date_range(start=get_upcoming_dates(len(forecast))[0], periods=number_of_days, freq='D')
 day_names = forecast_index.strftime('%A')
 st.metric(f"\n\n當天消耗量", f"{round(float(solar_data['Solar Gird Generation'].iloc[-1]), 2)} kWh")
@@ -1170,9 +1187,7 @@ fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['預測發電量'], 
 fig_bar.update_layout(xaxis_title='日期', yaxis_title='總發電量 (kWh)',
                       title='未來幾天的歷史數據和預測')
 st.plotly_chart(fig_bar,use_container_width=True)
-
-
-
+st.markdown('---')
 
 # 在 Streamlit 應用程序頂部設置標題
 if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
@@ -1229,4 +1244,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-321321
