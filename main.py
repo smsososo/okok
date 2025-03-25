@@ -46,7 +46,9 @@ overall_consumption_data=None
 house_holds_data=None
 solar_data=None
 
-#變量正確加載
+#變量正確加載 
+# 這段代碼將所有數據加載操作合併到一個 try 區塊中，# 如果任何一個數據加載失敗，將捕獲異常並打印錯誤信息，同時將相應的變量設置為 None。
+# 這樣可以確保您的代碼更簡潔，且更容易調試。
 try:
     overall_consumption_data = pd.read_excel(f"Data/{st.session_state.username}-over-consumption.xlsx")
     overall_consumption_data['Date'] = pd.to_datetime(overall_consumption_data['Date'])
@@ -67,6 +69,8 @@ except Exception as e:
     overall_consumption_data = None
     house_holds_data = None
     solar_data = None
+
+
 
 # 創建一個 SQLite 數據庫連接
 conn = sqlite3.connect('Database.db')
@@ -368,6 +372,8 @@ def logout():
         st.rerun()
     else:
         st.sidebar.info("請登錄或註冊。")
+
+
 
 def Interact_with_My_Data_using_AI():
     st.title("使用 AI 與您的數據互動")
@@ -1035,6 +1041,10 @@ def solar_dacipation():
         end_date = st.date_input("結束日期", solar_data['Date'].max())
 
     st.markdown('---')
+
+
+
+
     # 將日期輸入轉換為 datetime
     start_date = pd.Timestamp(start_date)
     end_date = pd.Timestamp(end_date)
@@ -1042,8 +1052,8 @@ def solar_dacipation():
 
 filtered_data = solar_data[(solar_data['Date'] >= start_date) & (solar_data['Date'] <= end_date)]
 
-    # 根據所選日期範圍篩選數據
-    # 計算指標
+# 根據所選日期範圍篩選數據
+# 計算指標
 
 average_solar_generation = filtered_data['Solar Gird Generation'].mean()
 average_consumption = filtered_data['Consumption and Dicipation'].mean()
@@ -1055,192 +1065,223 @@ peak_solar_generation = filtered_data.loc[filtered_data['Solar Gird Generation']
 peak_consumption = filtered_data.loc[filtered_data['Consumption and Dicipation'].idxmax(), 'Consumption and Dicipation']
 peak_solar_saving = filtered_data.loc[filtered_data['Solar Saving and backup'].idxmax(), 'Solar Saving and backup']
   
-  
-  
+
+
     # 獲取當前日期
 current_date = pd.to_datetime('today').date()
 
-    # 篩選當日數據
     
-current_day_data = solar_data[solar_data['Date'].dt.date == current_date]
-current_day_solar_generation = current_day_data['Solar Gird Generation'].sum()
-current_day_solar_diciptation = current_day_data['Consumption and Dicipation'].sum()
-current_day_solar_saving = current_day_data['Solar Saving and backup'].sum()
-col00,col0,col000,col4=st.columns([1, 1, 1, 1])
-with col0:
-    st.metric("今天的太陽能發電量", f"{round(current_day_solar_generation, 2)} kWh",
-              round((average_solar_generation / average_consumption) * 100, 2))
-with col00:
-    st.metric("今天的太陽能消耗量", f"{round(current_day_solar_diciptation, 2)} kWh",
-              round((average_solar_generation / average_consumption) * 100, 2))
-with col000:
-    st.metric("今天的太陽能儲存量", f"{round(current_day_solar_saving, 2)} kWh",
-              round((average_solar_generation / average_consumption) * 100, 2))
-with col4:
-    st.metric("總體太陽能效率", f"{round((total_solar_saving / total_solar_generation) * 100, 2) } kWh")
+    
+#(3/25)# 篩選當日數據  確保solar_data 變量之前進行檢查和初始化。
 
-st.markdown('---')
-col1, col2, col3, col5, col6, col7 = st.columns([1, 1, 1, 1, 1, 1])
+if solar_data is not None and house_holds_data is not None and overall_consumption_data is not None:
+    # 設置 current_date
+    current_date = datetime.now().date()
 
-with col1:
-    st.metric("平均每日太陽能發電量", f"{round(average_solar_generation, 2) } kWh",
-              round((average_solar_generation / average_consumption) * 100, 2))
-with col2:
-    st.metric("平均每日消耗量", f"{round(average_consumption, 2) } kWh",
-              round((average_consumption / average_solar_generation) * 100, 2))
-with col3:
-    st.metric("平均每日太陽能儲存量", f"{round(average_solar_saving, 2) } kWh",
-              round((average_solar_saving / average_solar_generation) * 100, 2))
+    # 設置 start_date 和 end_date
+    start_date = solar_data['Date'].min()
+    end_date = solar_data['Date'].max()
 
-with col5:
-    st.metric("最大太陽能發電量",f"{ round(peak_solar_generation, 2) } kWh",
-              round((peak_solar_generation / total_solar_generation) * 100, 2))
-with col6:
-    st.metric("最大消耗量", f"{round(peak_consumption, 2) } kWh",
-              round((peak_consumption / total_consumption) * 100, 2))
-with col7:
-    st.metric("最大太陽能儲存量", f"{round(peak_solar_saving, 2) } kWh",
-              round((peak_solar_saving / total_solar_saving) * 100, 2))
+    filtered_data = solar_data[(solar_data['Date'] >= start_date) & (solar_data['Date'] <= end_date)]
 
-st.markdown('---')
-col1,col2,=st.columns([1,1])
-with col1:
-    st.subheader("數據相關性和描述")
-    st.write(filtered_data.drop(['Date'],axis=1).describe())
-with col2:
-    st.subheader("過濾後的數據")
-    st.write(filtered_data,height=90)
+    # 根據所選日期範圍篩選數據並計算指標
+    average_solar_generation = filtered_data['Solar Gird Generation'].mean()
+    average_consumption = filtered_data['Consumption and Dicipation'].mean()
+    average_solar_saving = filtered_data['Solar Saving and backup'].mean()
+    total_solar_generation = filtered_data['Solar Gird Generation'].sum()
+    total_solar_saving = filtered_data['Solar Saving and backup'].sum()
+    total_consumption = filtered_data['Consumption and Dicipation'].sum()
+    peak_solar_generation = filtered_data.loc[filtered_data['Solar Gird Generation'].idxmax(), 'Solar Gird Generation']
+    peak_consumption = filtered_data.loc[filtered_data['Consumption and Dicipation'].idxmax(), 'Consumption and Dicipation']
+    peak_solar_saving = filtered_data.loc[filtered_data['Solar Saving and backup'].idxmax(), 'Solar Saving and backup']
+  
+    # 獲取當前日期
+    current_date = pd.to_datetime('today').date()
+    
+    # 篩選當日數據
+    current_day_data = solar_data[solar_data['Date'].dt.date == current_date]
+    current_day_solar_generation = current_day_data['Solar Gird Generation'].sum()
+    current_day_solar_diciptation = current_day_data['Consumption and Dicipation'].sum()
+    current_day_solar_saving = current_day_data['Solar Saving and backup'].sum()
+    col00,col0,col000,col4=st.columns([1, 1, 1, 1])
+    with col0:
+        st.metric("今天的太陽能發電量", f"{round(current_day_solar_generation, 2)} kWh",
+                  round((average_solar_generation / average_consumption) * 100, 2))
+    with col00:
+        st.metric("今天的太陽能消耗量", f"{round(current_day_solar_diciptation, 2)} kWh",
+                  round((average_solar_generation / average_consumption) * 100, 2))
+    with col000:
+        st.metric("今天的太陽能儲存量", f"{round(current_day_solar_saving, 2)} kWh",
+                  round((average_solar_generation / average_consumption) * 100, 2))
+    with col4:
+        st.metric("總體太陽能效率", f"{round((total_solar_saving / total_solar_generation) * 100, 2) } kWh")
 
-fig3 = px.bar(filtered_data, x='Date', y=['Solar Gird Generation', 'Consumption and Dicipation', 'Solar Saving and backup'],
-              title='特定日期的太陽能發電、消耗和儲存',
-              barmode='stack')
-st.plotly_chart(fig3, use_container_width=True)
+    st.markdown('---')
+    col1, col2, col3, col5, col6, col7 = st.columns([1, 1, 1, 1, 1, 1])
 
-st.markdown('---')
-# 顯示結果在 Streamlit 中
-st.title('太陽能預測\n\n\n.')
-number_of_days = st.slider('選擇要預測的天數約發電量', 0, 30, 7)
-# 重置索引以確保唯一標籤
-solar_data.reset_index(drop=True, inplace=True)
+    with col1:
+        st.metric("平均每日太陽能發電量", f"{round(average_solar_generation, 2) } kWh",
+                  round((average_solar_generation / average_consumption) * 100, 2))
+    with col2:
+        st.metric("平均每日消耗量", f"{round(average_consumption, 2) } kWh",
+                  round((average_consumption / average_solar_generation) * 100, 2))
+    with col3:
+        st.metric("平均每日太陽能儲存量", f"{round(average_solar_saving, 2) } kWh",
+                  round((average_solar_saving / average_solar_generation) * 100, 2))
 
-# 排除當天數據
-historical_costs = solar_data['Solar Gird Generation'][:-1]
+    with col5:
+        st.metric("最大太陽能發電量",f"{ round(peak_solar_generation, 2) } kWh",
+                  round((peak_solar_generation / total_solar_generation) * 100, 2))
+    with col6:
+        st.metric("最大消耗量", f"{round(peak_consumption, 2) } kWh",
+                  round((peak_consumption / total_consumption) * 100, 2))
+    with col7:
+        st.metric("最大太陽能儲存量", f"{round(peak_solar_saving, 2) } kWh",
+                  round((peak_solar_saving / total_solar_saving) * 100, 2))
 
-# 獲取歷史數據中的最後日期
-last_date = historical_costs.index[-1]
+    st.markdown('---')
+    col1,col2,=st.columns([1,1])
+    with col1:
+        st.subheader("數據相關性和描述")
+        st.write(filtered_data.drop(['Date'],axis=1).describe())
+    with col2:
+        st.subheader("過濾後的數據")
+        st.write(filtered_data,height=90)
 
-# 為預測準備歷史數據
-historical_data = solar_data.loc[:last_date]
-# SARIMA 模型設置
-order = (1, 1, 1)  # SARIMA 順序 (p, d, q)
-seasonal_order = (1, 1, 1, 12)  # 季節順序 (P, D, Q, s)
-sarima_model = sm.tsa.statespace.SARIMAX(historical_data['Solar Gird Generation'], order=order, seasonal_order=seasonal_order)
-fitted_sarima_model = sarima_model.fit()
-# 預測接下來的 'number_of_days' 天
-forecast = fitted_sarima_model.forecast(steps=number_of_days)
-# 確保非負預測
-forecast[forecast < 0] = 0
+    fig3 = px.bar(filtered_data, x='Date', y=['Solar Gird Generation', 'Consumption and Dicipation', 'Solar Saving and backup'],
+                  title='特定日期的太陽能發電、消耗和儲存',
+                  barmode='stack')
+    st.plotly_chart(fig3, use_container_width=True)
 
-# 提取日期名稱和年份
-def get_upcoming_dates(num_days):
-    upcoming_dates = []
-    today = datetime.today()
-    for i in range(num_days):
-        next_date = today + timedelta(days=i + 1)
-        upcoming_dates.append(next_date.strftime('%Y-%m-%d'))
-    return upcoming_dates
+    st.markdown('---')
+    # 顯示結果在 Streamlit 中
+    st.title('太陽能預測\n\n\n.')
+    number_of_days = st.slider('選擇要預測的天數約發電量', 0, 30, 7)
+    # 重置索引以確保唯一標籤
+    solar_data.reset_index(drop=True, inplace=True)
 
-forecast_index = pd.date_range(start=get_upcoming_dates(len(forecast))[0], periods=number_of_days, freq='D')
-day_names = forecast_index.strftime('%A')
-st.metric(f"\n\n當天消耗量", f"{round(float(solar_data['Solar Gird Generation'].iloc[-1]), 2)} kWh")
-cols = st.columns(number_of_days)
-# 顯示指標
-forecast=list(forecast)
-for i in range(number_of_days):
-    predicted_cost = forecast[i]
-    previous_cost = forecast[i - 1] if i > 0 else None
-    trend_color = ""
-    if previous_cost is not None:
-        if predicted_cost > previous_cost:
-            trend_color = "%"
-        elif predicted_cost < previous_cost:
-            trend_color = "-%"
+    # 排除當天數據
+    historical_costs = solar_data['Solar Gird Generation'][:-1]
+
+    # 獲取歷史數據中的最後日期
+    last_date = historical_costs.index[-1]
+
+    # 為預測準備歷史數據
+    historical_data = solar_data.loc[:last_date]
+    # SARIMA 模型設置
+    order = (1, 1, 1)  # SARIMA 順序 (p, d, q)
+    seasonal_order = (1, 1, 1, 12)  # 季節順序 (P, D, Q, s)
+    sarima_model = sm.tsa.statespace.SARIMAX(historical_data['Solar Gird Generation'], order=order, seasonal_order=seasonal_order)
+    fitted_sarima_model = sarima_model.fit()
+    # 預測接下來的 'number_of_days' 天
+    forecast = fitted_sarima_model.forecast(steps=number_of_days)
+    # 確保非負預測
+    forecast[forecast < 0] = 0
+
+    # 提取日期名稱和年份
+    def get_upcoming_dates(num_days):
+        upcoming_dates = []
+        today = datetime.today()
+        for i in range(num_days):
+            next_date = today + timedelta(days=i + 1)
+            upcoming_dates.append(next_date.strftime('%Y-%m-%d'))
+        return upcoming_dates
+
+    forecast_index = pd.date_range(start=get_upcoming_dates(len(forecast))[0], periods=number_of_days, freq='D')
+    day_names = forecast_index.strftime('%A')
+    st.metric(f"\n\n當天消耗量", f"{round(float(solar_data['Solar Gird Generation'].iloc[-1]), 2)} kWh")
+    cols = st.columns(number_of_days)
+    # 顯示指標
+    forecast=list(forecast)
+    for i in range(number_of_days):
+        predicted_cost = forecast[i]
+        previous_cost = forecast[i - 1] if i > 0 else None
+        trend_color = ""
+        if previous_cost is not None:
+            if predicted_cost > previous_cost:
+                trend_color = "%"
+            elif predicted_cost < previous_cost:
+                trend_color = "-%"
+            else:
+                trend_color = "%"
+
+            cols[i].metric(f"預測 ({day_names[i]})",
+                           f"{predicted_cost:.2f} (kWh)",
+                           f"{trend_color}")
         else:
-            trend_color = "%"
+            cols[i].metric(f"預測 ({day_names[i]})",
+                           f"{predicted_cost:.2f} (kWh)",
+                           f"{trend_color}")
 
-        cols[i].metric(f"預測 ({day_names[i]})",
-                       f"{predicted_cost:.2f} (kWh)",
-                       f"{trend_color}")
-    else:
-        cols[i].metric(f"預測 ({day_names[i]})",
-                       f"{predicted_cost:.2f} (kWh)",
-                       f"{trend_color}")
+    st.markdown('---')
+    st.write("### 歷史數據和預測 ")
+    # 顯示歷史數據和預測的柱狀圖
+    bar_chart_data = pd.DataFrame({'Date': forecast_index, '預測發電量': forecast})
 
-st.markdown('---')
-st.write("### 歷史數據和預測 ")
-# 顯示歷史數據和預測的柱狀圖
-bar_chart_data = pd.DataFrame({'Date': forecast_index, '預測發電量': forecast})
+    # 繪製柱狀圖
+    fig_bar = go.Figure()
+    fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['預測發電量'], name='預測發電量'))
+    fig_bar.update_layout(xaxis_title='日期', yaxis_title='總發電量 (kWh)',
+                          title='未來幾天的歷史數據和預測')
+    st.plotly_chart(fig_bar,use_container_width=True)
 
-# 繪製柱狀圖
-fig_bar = go.Figure()
-fig_bar.add_trace(go.Bar(x=forecast_index, y=bar_chart_data['預測發電量'], name='預測發電量'))
-fig_bar.update_layout(xaxis_title='日期', yaxis_title='總發電量 (kWh)',
-                      title='未來幾天的歷史數據和預測')
-st.plotly_chart(fig_bar,use_container_width=True)
-st.markdown('---')
+    st.markdown('---')
 
-# 在 Streamlit 應用程序頂部設置標題
-if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
-    st.set_page_config(
-        page_title="能源消耗分析",
-        page_icon="Images/Lgo-Image-Eletric.png",  # 您可以使用表情符號或提供圖標的 URL
-        layout="wide",  # 將佈局設置為寬
-    )
-else:
-    st.set_page_config(
-        page_title="Hsieh",
-        page_icon="Images/Lgo-Image-Eletric.png",  # 您可以使用表情符號或提供圖標的 URL
-    )
-
-st.markdown("""
-<script>
-document.body.style.zoom = 0.8;
-</script>
-""", unsafe_allow_html=True)
-st.markdown("""
-<script>
-document.body.style.zoom = 0.8;
-</script>
-""", unsafe_allow_html=True)
-
-# 應用程序導航
-def main():
-    st.sidebar.image("Images/Lgo-Image-Eletric.png", caption="能源消耗分析", use_column_width=True)
-
+    # 在 Streamlit 應用程序頂部設置標題
     if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
-        pages = {
-            "首頁": home,
-            "個人資料": profile,
-            "總體消耗": overall_consumption,
-            "家庭消耗": house_hold_consumption,
-            "太陽能消耗": solar_dacipation,
-            "使用 AI 與數據互動": Interact_with_My_Data_using_AI,
-            "登出帳戶": logout,
-        }
-        st.sidebar.title("能源分析")
-        st.sidebar.markdown(f'以<span style="text-decoration:none; color:white ;">&nbsp;{st.session_state.user_good_name}</span> 登錄', unsafe_allow_html=True)
-        st.sidebar.markdown("<br>", unsafe_allow_html=True)
-
+        st.set_page_config(
+            page_title="能源消耗分析",
+            page_icon="Images/Lgo-Image-Eletric.png",  # 您可以使用表情符號或提供圖標的 URL
+            layout="wide",  # 將佈局設置為寬
+        )
     else:
-        pages = {
-            "使用現有帳戶登錄": Login,
-            "註冊新的帳戶": Register,
-        }
-        st.sidebar.title("帳戶")
+        st.set_page_config(
+            page_title="Hsieh",
+            page_icon="Images/Lgo-Image-Eletric.png",  # 您可以使用表情符號或提供圖標的 URL
+        )
 
-    selection = st.sidebar.selectbox("選擇頁面導航", list(pages.keys()))
-    page = pages[selection]
-    page()
+    st.markdown("""
+    <script>
+    document.body.style.zoom = 0.8;
+    </script>
+    """, unsafe_allow_html=True)
+    st.markdown("""
+    <script>
+    document.body.style.zoom = 0.8;
+    </script>
+    """, unsafe_allow_html=True)
 
-if __name__ == "__main__":
-    main()
+    # 應用程序導航
+    def main():
+        st.sidebar.image("Images/Lgo-Image-Eletric.png", caption="能源消耗分析", use_column_width=True)
+
+        if hasattr(st.session_state, "logged_in") and st.session_state.logged_in:
+            pages = {
+                "首頁": home,
+                "個人資料": profile,
+                "總體消耗": overall_consumption,
+                "家庭消耗": house_hold_consumption,
+                "太陽能消耗": solar_dacipation,
+                "使用 AI 與數據互動": Interact_with_My_Data_using_AI,
+                "登出帳戶": logout,
+            }
+            st.sidebar.title("能源分析")
+            st.sidebar.markdown(f'Logged in as<span style="text-decoration:none; color:white ;">&nbsp;{st.session_state.user_good_name}</span>',unsafe_allow_html=True)
+           
+
+        else:
+            pages = {
+                "使用現有帳戶登錄": Login,
+                "註冊新的帳戶": Register,
+            }
+            st.sidebar.title("帳戶")
+
+        selection = st.sidebar.selectbox("選擇頁面導航", list(pages.keys()))
+        page = pages[selection]
+        page()
+
+    if __name__ == "__main__":
+        main()
+else:
+    st.error("數據加載失敗，請檢查文件是否存在並且格式正確。")
+
